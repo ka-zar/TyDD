@@ -2,12 +2,15 @@
   * Write a function which takes an id: Int and returns an Either depending upon which tree is evaluated if any.
   * Write a function which constructs TreeProcessor instances for Zip[List, Tuple2] instances
   */
+
 trait Zip[F[_], G[_, _]]{
   def zip[A, B](a: F[A], b: F[B]): F[G[A, B]]
 }
+
 implicit def zipListTuple2: Zip[List, Tuple2] = new Zip[List, Tuple2]{
   override def zip[A, B](a: List[A], b: List[B]): List[(A, B)] = a.zip(b)
 }
+
 implicit def zip[F[_], G[_, _], A, B](implicit F: Zip[F, G], a: F[A], b: F[B]): F[G[A, B]] =
   F.zip(a, b)
 
@@ -43,3 +46,31 @@ object Application{
       }
     }
 }
+
+/**
+  * Write a function which constructs TreeProcessor instances for Zip[List, Tuple2] instances
+  */
+
+//First, a helper
+trait Unzip[F[_], G[_, _]]{
+  def unzip[A, B](fg: F[G[A, B]]): G[F[A], F[B]]
+}
+implicit val unzipListTuple2 = new Unzip[List, Tuple2]{
+  override def unzip[A, B](fg: List[(A, B)]): (List[A], List[B]) = {
+    //Do not do this in production code, this is to make the example simpler
+    (fg.map(_._1), fg.map(_._2))
+  }
+}
+
+//Now we implement our function
+implicit def treeProcessor[A, B](implicit
+                                 U: Unzip[List, Tuple2],
+                                 tpa: TreeProcessor[List[A]],
+                                 tpb: TreeProcessor[List[B]]): TreeProcessor[List[(A, B)]] =
+  new TreeProcessor[List[(A, B)]]{
+    override def process(in: List[(A, B)]): Unit = {
+      val (a, b) = U.unzip(in)
+      tpa.process(a)
+      tpb.process(b)
+    }
+  }
